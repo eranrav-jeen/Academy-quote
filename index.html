@@ -242,9 +242,11 @@ function calc(s){
   const qd=qtyDisc(s.deals),xd=Math.min(Math.max(s.extraDisc,0),100);
   const rows=[];for(let i=0;i<yrs;i++){const list=t[s.lic][i];const after=list*(1-qd/100)*(1-xd/100);rows.push({y:i+1,list,disc:list-after,net:after})}
   const licList=rows.reduce((a,r)=>a+r.list,0),licNet=rows.reduce((a,r)=>a+r.net,0);
-  const pd=psDisc(s.psHours);const psYear=s.psHours*s.psRate*(1-pd/100);const psTotal=psYear*yrs;
+  const pd=psDisc(s.psHours);const unit=s.psRate*(1-pd/100);
+  const ps=[];for(let i=0;i<yrs;i++){const incl=(i===0&&s.bonus100)?Math.min(100,s.psHours):0;const bill=s.psHours-incl;ps.push({y:i+1,hours:s.psHours,incl,bill,cost:bill*unit})}
+  const psTotal=ps.reduce((a,r)=>a+r.cost,0);
   const licIls=licNet*s.fx;const pre=licIls+psTotal;const vatAmt=pre*s.vat/100;
-  return{t,yrs,qd,xd,rows,licList,licNet,pd,psYear,psTotal,licIls,pre,vatAmt,total:pre+vatAmt};
+  return{t,yrs,qd,xd,rows,licList,licNet,pd,unit,ps,psTotal,licIls,pre,vatAmt,total:pre+vatAmt};
 }
 
 function render(){
@@ -280,9 +282,10 @@ function render(){
   <div class="tblw"><table><thead><tr><th>רישוי שנתי (Site license)</th><th class="num">מחירון</th><th class="num">${discLabel||"הנחה"}</th><th class="num">לתשלום (USD)</th></tr></thead>
   <tbody>${licRows}<tr class="tot"><td>סה"כ רישוי</td><td class="num">${usd(c.licList)}</td><td class="num">${c.licList-c.licNet?"−"+usd(c.licList-c.licNet):"—"}</td><td class="num">${usd(c.licNet)}</td></tr></tbody></table></div>
 
-  ${s.psHours>0?`<div class="tblw" style="margin-top:14px"><table><thead><tr><th>שעות מומחה (Professional Services)</th><th class="num">שעות/שנה</th><th class="num">תעריף</th><th class="num">הנחה</th><th class="num">לשנה (₪)</th></tr></thead>
-  <tbody><tr><td>בנק שעות שנתי, מחויב מראש</td><td class="num">${s.psHours.toLocaleString("en-US")}</td><td class="num">${ils(s.psRate)}</td><td class="num">${c.pd?c.pd+"%":"—"}</td><td class="num">${ils(c.psYear)}</td></tr>
-  <tr class="tot"><td colspan="4">סה"כ ל-${c.yrs} ${c.yrs===1?"שנה":"שנים"}</td><td class="num">${ils(c.psTotal)}</td></tr></tbody></table></div>`:""}
+  ${s.psHours>0?`<div class="tblw" style="margin-top:14px"><table><thead><tr><th>שעות מומחה (Professional Services)</th><th class="num">שעות</th><th class="num">כלולות ברישוי</th><th class="num">לחיוב</th><th class="num">עלות (₪)</th></tr></thead>
+  <tbody>${c.ps.map(r=>`<tr><td>בנק שעות שנה ${["ראשונה","שנייה","שלישית"][r.y-1]}</td><td class="num">${r.hours.toLocaleString("en-US")}</td><td class="num">${r.incl?"−"+r.incl:"—"}</td><td class="num">${r.bill.toLocaleString("en-US")}</td><td class="num">${ils(r.cost)}</td></tr>`).join("")}
+  <tr class="tot"><td colspan="4">סה"כ ל-${c.yrs} ${c.yrs===1?"שנה":"שנים"}</td><td class="num">${ils(c.psTotal)}</td></tr></tbody></table></div>
+  <p class="note" style="margin-top:6px">תעריף לשעה ${ils(s.psRate)}${c.pd?`, בהנחת מדרגה של ${c.pd}% (${ils(c.unit)} לשעה)`:""}, בתוספת מע"מ. בנק השעות מחויב מראש.</p>`:""}
 
   <div class="tblw" style="margin-top:14px"><table><tbody>
    <tr><td>רישוי בש"ח (הערכה לפי שער ${s.fx.toFixed(2)})</td><td class="num">${ils(c.licIls)}</td></tr>
